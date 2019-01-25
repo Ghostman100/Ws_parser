@@ -10,6 +10,39 @@ try:
     import thread
 except ImportError:
     import _thread as thread
+SITE = "wss://gg11.bet/ru/betting/match/"
+
+
+def bet(ws, id, map, team, ratio, amount):
+    stake = {
+        "id": graphCount,
+        "type": "start",
+        "payload": {
+            "variables": {
+                "type": "SINGLE",
+                "stake": amount,
+                "odds": [
+                    {
+                        "matchId": matchID,
+                        "marketId": marketId,
+                        "oddId": oddId,
+                        "ratio": ratio
+                    }
+                ],
+                "systemSize": [
+                    1
+                ],
+                "freebetId": ""
+            },
+            "extensions": {
+
+            },
+            "operationName": "PlaceBet",
+            "query": "mutation PlaceBet($type: BetType!, $odds: [PlaceBetOdd!]!, $stake: Float!, $systemSize: [Int!]!, $freebetId: String) {\n  bets: placeBet(type: $type, odds: $odds, stake: $stake, systemSize: $systemSize, freebetId: $freebetId) {\n    id\n    type\n    status\n    stake\n    systemSizes\n    odds {\n      ratio\n      oddId\n      marketId\n      matchId\n    }\n  }\n}\n"
+        }
+    }
+    graphCount += 1
+    ws.send(json.dumps(stake))
 
 
 def on_messageP(ws, message):
@@ -23,6 +56,10 @@ def on_messageP(ws, message):
         a = json.loads(a)
         # print(a)
         if a['method'] == "match":
+            score = a['body']['fixture']['score']
+            round = int(score[0]) + int(score[-1]) + 1
+            league_name = a['body']['meta']["tournament/name"]
+            start_time = a['body']['fixture']["start_time"]
             mapsNum = []
             global maps
             for mapp in a["body"]['markets']:
@@ -32,8 +69,35 @@ def on_messageP(ws, message):
             for i in mapsNum:
                 if a['body']['markets'][i]['odds'][0]['is_active']:
                     print(a['body']['markets'][i]["specifiers"]["mapnr"] + " match " + a['body']['markets'][i]['odds'][0]['value'] + "-" + a['body']['markets'][i]['odds'][1]['value'])
-                else:
-                    print(a['body']['markets'][i]["specifiers"]["mapnr"] + " stake not active")
+                    if int(a['body']['markets'][i]["specifiers"]["mapnr"]) == round:
+                        data = {
+                              "live_games":[
+                                 {
+                                    "date": "",
+                                    "is_live": "true",
+                                    "league_name": league_name,
+                                    "details":[
+                                       [
+                                          [
+                                             a['body']['markets'][i]['odds'][0]['value'],
+                                             a['body']['markets'][i]['odds'][1]['value']
+                                          ],
+                                          "ПОБЕДИТЕЛЬ. КАРТА " + str(round)
+                                       ]
+                                    ],
+                                    "teams":[
+                                       a['body']['meta']["home_team/name"],
+                                       a['body']['meta']["away_team/name"]
+                                    ],
+                                    "url": SITE + a['body']['id']
+                                 }
+                              ]
+                           }
+                        data = {"data": json.dumps(data), "betting_site": "ws_gg11_bet"}
+                        response = requests.post("http://dotapicker.pro/betting_games/feed_data", data=data)
+                        print(response)
+                # else:
+                    # print(a['body']['markets'][i]["specifiers"]["mapnr"] + " stake not active")
             # if a['body']['markets'][2]['odds'][0]['is_active']:
             #     print("1st match " + a['body']['markets'][2]['odds'][0]['value'] + "-" + a['body']['markets'][2]['odds'][1]['value'])
             # else:
@@ -118,6 +182,30 @@ def on_messageG(ws, message):
         live = []
         for mat in message['payload']['data']['matches']:
             live.append(mat['id'])
+        live_games = []
+        for match in message["payload"]["data"]["matches"]:
+            league_name = match["fixture"]['tournament']['name']
+            live_games.append({
+                                    "date": "",
+                                    "is_live": "true",
+                                    "league_name": league_name,
+                                    "details": [],
+                                    "teams": [
+                                        match["fixture"]["competitors"][0]["name"],
+                                        match["fixture"]["competitors"][1]["name"]
+                                    ],
+                                    "url": SITE + match['id']
+                                 })
+        d = {"betting_games": live_games}
+        data = {"data": json.dumps(d), "betting_site": "ws_gg11_bet"}
+        print(json.dumps(data))
+        response = requests.post("http://dotapicker.pro/betting_games/feed_data", data=data)
+        print(response)
+        # res = requests.get("http://dotapicker.pro/betting_games/predictions?bankroll=2000&betting_site=ws_gg11_bet")
+        # res = json.loads(res.text)
+        # if not res:
+        #     for match in res:
+        #
         sleep(60)
         query = {
             "id": str(graphCount),
