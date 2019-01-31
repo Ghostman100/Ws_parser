@@ -1,6 +1,7 @@
 import requests
 import re
 import json
+import datetime
 # import ssl
 from time import sleep
 import threading
@@ -43,10 +44,12 @@ def bet(ws, id, marketId, oddId, ratio, amount):
     }
     graphCount += 1
     f = open('bets.txt', 'a')
-    f.write("сотсавил Json" + json.dumps(stake))
+    f.write("потсавил Json" + json.dumps(stake))
+    print("потсавил Json" + json.dumps(stake))
     print(json.dumps(stake))
     ws.send(json.dumps(stake))
     f.write("Поставил " + str(amount) + "\n")
+    f.write(datetime.datetime.now())
     f.close()
 
 
@@ -154,8 +157,16 @@ def on_error(ws, error):
     print(error)
 
 
-def on_close(ws):
-    print("### closed ###")
+def on_closeP(ws):
+    print("### Parser closed ###")
+    global parser_start
+    parser_start = False
+
+
+def on_closeG(ws):
+    print("### Graphql closed ###")
+    global graph_start
+    graph_start = False
 
 
 def on_openP(ws):
@@ -195,7 +206,7 @@ def on_messageG(ws, message):
     if "bets" in message['payload']["data"]:
         id = message['payload']["data"]['bets']['odds'][0]['matchId']
         for key, match in bets.items():
-            if match['match_id'] == id:
+            if match['matchId'] == id:
                 data = {
                     "map": match['map'],
                     "amount": match['amount'],
@@ -335,7 +346,7 @@ class Parse (threading.Thread):
         ws = websocket.WebSocketApp("wss://betting-async.gin.bet/sockjs/089/0h5wfxpj/websocket",
                                     on_message=on_messageP,
                                     on_error=on_error,
-                                    on_close=on_close)
+                                    on_close=on_closeP)
         ws.on_open = on_openP
         print("run parse")
         ws.run_forever()
@@ -354,7 +365,7 @@ class Graphql (threading.Thread):
         ws = websocket.WebSocketApp("wss://betting-public-gql.gin.bet/graphql",
                                 on_message=on_messageG,
                                 on_error=on_error,
-                                on_close=on_close)
+                                on_close=on_closeG)
         ws.on_open = on_openG
         print("run graphql")
         ws.run_forever()
@@ -362,6 +373,10 @@ class Graphql (threading.Thread):
 
 x = 0
 # Create new threads
+
+parser_start = False
+graph_start = False
+
 maps = ["50m1", "50m2", "50m3"]
 thread2 = Graphql(2, "Graphql")
 thread1 = Parse(1, "Websocket")
@@ -371,8 +386,15 @@ subscribed = []
 live = []
 bets = {}
 # Start new Threads
-thread2.start()
-thread1.start()
+c = 0
+while (c < 10):
+    if graph_start:
+        thread2.start()
+        graph_start = True
+    if parser_start:
+        thread1.start()
+        parser_start = True
+    sleep(30)
 thread2.join()
 thread1.join()
 print("Exiting Main Thread")
