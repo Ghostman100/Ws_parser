@@ -1,6 +1,5 @@
 import requests
 import re
-import websocket
 import json
 # import ssl
 from time import sleep
@@ -14,19 +13,20 @@ SITE = "wss://gg11.bet/ru/betting/match/"
 
 
 def bet(ws, id, marketId, oddId, ratio, amount):
+    global graphCount
     stake = {
-        "id": graphCount,
+        "id": str(graphCount),
         "type": "start",
         "payload": {
             "variables": {
                 "type": "SINGLE",
-                "stake": amount,
+                "stake": float(amount),
                 "odds": [
                     {
                         "matchId": id,
                         "marketId": marketId,
                         "oddId": oddId,
-                        "ratio": ratio
+                        "ratio": float(ratio)
                     }
                 ],
                 "systemSize": [
@@ -42,9 +42,11 @@ def bet(ws, id, marketId, oddId, ratio, amount):
         }
     }
     graphCount += 1
-    ws.send(json.dumps(stake))
     f = open('bets.txt', 'a')
-    f.write("Поставил " + amount)
+    f.write("сотсавил Json" + json.dumps(stake))
+    print(json.dumps(stake))
+    ws.send(json.dumps(stake))
+    f.write("Поставил " + str(amount) + "\n")
     f.close()
 
 
@@ -106,13 +108,13 @@ def on_messageP(ws, message):
                             id = a['body']["id"]
                             for match in res:
                                 if match['url'][32:] == id:
-                                    marketId = "50m" + round
+                                    marketId = "50m" + str(round)
                                     if a['body']['meta']["home_team/name"] == match['team']:
                                         oddId = "1"
                                     else:
                                         oddId = "2"
-                                    ratio = a['body']['markets'][i]['odds'][int(oddId)]['value']
-                                    bets.append({"id": match['id'], "matchId": id, "marketId": marketId, "oddId": oddId, "ratio": ratio, "map": match['map'], "team": match['team'], "model": match["prediction_model"], "amount": match['amount']})
+                                    ratio = a['body']['markets'][i]['odds'][int(oddId) - 1]['value']
+                                    bets[match['id']] = {"matchId": id, "marketId": marketId, "oddId": oddId, "ratio": ratio, "map": match['map'], "team": match['team'], "model": match["prediction_model"], "amount": match['amount']}
     global live
     global subscribed
     global parseCount
@@ -181,6 +183,9 @@ def on_openP(ws):
 def on_messageG(ws, message):
     print("graphql:")
     print(message)
+    f = open('graphql.txt', 'a')
+    f.write(message + "\n")
+    f.close()
     message = json.loads(message)
     global live
     global graphCount
@@ -188,21 +193,21 @@ def on_messageG(ws, message):
     if "errors" in message['payload']:
         return
     if "bets" in message['payload']["data"]:
-        id = message["data"]['bets']['odds'][0]['matchId']
-        for match in bets:
-            if match['id'] == id:
+        id = message['payload']["data"]['bets']['odds'][0]['matchId']
+        for key, match in bets.items():
+            if match['match_id'] == id:
                 data = {
                     "map": match['map'],
                     "amount": match['amount'],
                     "team": match['team'],
-                    "bet": match['ratio'],
-                    "prediction_model": match["prediction_model"]
+                    "bet": float(match['ratio']),
+                    "prediction_model": match["model"]
                 }
-                url = 'http://dotapicker.pro/betting_games/' + match['id'] +'/update_bet_details'
-                response = requests.post(url, json.dumps(data))
+                url = 'http://dotapicker.pro/betting_games/' + str(key) +'/update_bet_details'
+                response = requests.post(url, data)
                 print(response.text)
                 print("send отчет")
-                bets.remove(match)
+                del bets[key]
         return
     if message["type"] == 'data':
         live = []
@@ -228,15 +233,16 @@ def on_messageG(ws, message):
         response = requests.post("http://dotapicker.pro/betting_games/feed_data", data=data)
         print(response)
         count = 0
-        f = open('text.txt', 'a')
-        while(count < 6):
-            sleep(10)
+        while(count < 5):
+            f = open('text.txt', 'a')
+            sleep(12)
             count += 1
-            f.write(str(bets))
+            f.write(str(bets) + "\n")
             if bets:
-                for match in bets:
+                print(str(bets))
+                for key, match in bets.items():
                     bet(ws, match['matchId'], match['marketId'], match["oddId"], match["ratio"], match["amount"])
-        f.close()
+            f.close()
         query = {
             "id": str(graphCount),
             "type": "start",
@@ -363,7 +369,7 @@ parseCount = 2
 graphCount = 2
 subscribed = []
 live = []
-bets = []
+bets = {}
 # Start new Threads
 thread2.start()
 thread1.start()
