@@ -55,6 +55,10 @@ def bet(ws, id, marketId, oddId, ratio, amount):
 
 def on_messageP(ws, message):
     print("Parse:")
+    f = open("parse.txt", 'a')
+    f.write(message)
+    f.write("\n")
+    f.close()
     # print(message)
     if message[0] == 'a':
         a = message[1:]
@@ -376,10 +380,9 @@ x = 0
 
 parser_start = False
 graph_start = False
-
+parser_number = 1
+grapgh_number = 2
 maps = ["50m1", "50m2", "50m3"]
-thread2 = Graphql(2, "Graphql")
-thread1 = Parse(1, "Websocket")
 parseCount = 2
 graphCount = 2
 subscribed = []
@@ -388,10 +391,12 @@ bets = {}
 # Start new Threads
 c = 0
 while (c < 10):
-    if graph_start:
+    if not graph_start:
+        thread2 = Graphql(grapgh_number, "Graphql")
         thread2.start()
         graph_start = True
-    if parser_start:
+    if not parser_start:
+        thread1 = Parse(parser_number, "Websocket")
         thread1.start()
         parser_start = True
     sleep(30)
