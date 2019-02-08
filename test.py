@@ -392,10 +392,12 @@ bets = {}
 c = 0
 while (c < 10):
     if not graph_start:
+        graphCount = 2
         thread2 = Graphql(grapgh_number, "Graphql")
         thread2.start()
         graph_start = True
     if not parser_start:
+        parseCount = 2
         thread1 = Parse(parser_number, "Websocket")
         thread1.start()
         parser_start = True
