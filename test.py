@@ -347,7 +347,7 @@ class Parse (threading.Thread):
     def run(self):
 
         websocket.enableTrace(True)
-        ws = websocket.WebSocketApp("wss://betting-async.gin.bet/sockjs/089/0h5wfxpj/websocket",
+        ws = websocket.WebSocketApp("wss://betting-async.gin.bet/sockjs/259/5httdix0/websocket",
                                     on_message=on_messageP,
                                     on_error=on_error,
                                     on_close=on_closeP)
