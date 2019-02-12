@@ -175,13 +175,17 @@ def on_closeG(ws):
 
 def on_openP(ws):
     print("run")
-    global token
     global live
     global subscribed
     global parseCount
     while (not live):
         sleep(5)
     query = []
+    url = "https://gg11.bet/ru/betting"
+    r = requests.get(url)
+    html = r.text
+    token = re.search(r'token: "(.*?)"', html)
+    token = token.group(1)
     message = {"uid": "1", "method": "auth", "params": {"token": token}}
     for match in live:
         query.append({"uid": str(parseCount), "method": "match_subscribe", "params": {"match": match}})
